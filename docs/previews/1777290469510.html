@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>preview mapping test</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <p>I keep a small mental list of phrases that sound harmless but tend to hide a lot of complexity. “Preview mapping test” is one of them.</p>
+<p>It reads like a tidy little checkbox: generate a preview, map some fields, run a test, ship it. But the moment you’re the person responsible for the result—especially when the “preview” is what everyone uses to decide whether the mapping is correct—you realize you’re not testing a feature. You’re testing a promise.</p>
+<p>And promises are brittle.</p>
+<h2>Hook</h2>
+<p>A preview mapping test is the software equivalent of “trust me.” It’s the moment where the system says: <em>Here’s what will happen when we run this for real.</em></p>
+<p>If that preview is wrong—even in subtle ways—you don’t just get a bug. You get users who stop believing the product.</p>
+<h2>My take (why I care about this more than I probably should)</h2>
+<p>When I see “preview” in a data workflow, I immediately ask one question: <em>Preview of what, exactly?</em></p>
+<p>Because there are two very different meanings people collapse into the same word:</p>
+<ol>
+<li><strong>Preview of the mapping logic</strong> (i.e., “this is how we transform input → output”)</li>
+<li><strong>Preview of the actual run outcome</strong> (i.e., “this is what will land in the destination”)</li>
+</ol>
+<p>Most systems <em>intend</em> #1 and users <em>assume</em> #2. That mismatch is where things go sideways.</p>
+<p>A “preview mapping test” becomes a kind of UX contract: users click a button, see a table, and decide whether it’s safe to proceed. If the preview is generated from a non-representative sample, a different code path, or a simplified execution context, you’re basically asking them to sign off on something you didn’t actually simulate.</p>
+<p>I’m slightly technical about this because it’s one of those areas where implementation details leak directly into trust. The product can be “correct” according to the code and still feel broken because the preview didn’t match reality.</p>
+<h2>Insight (what a preview mapping test actually needs to prove)</h2>
+<p>If I had to boil it down, a preview mapping test should answer three questions with zero ambiguity:</p>
+<h3>1) Is the mapping functionally correct?</h3>
+<p>This is the obvious one: given an input record, does the mapping produce the expected output fields?</p>
+<p>But “correct” isn’t just “field A goes to field B.” It includes:</p>
+<ul>
+<li>Type conversions (strings to numbers, timestamps to dates)</li>
+<li>Null handling (missing keys, empty strings, whitespace)</li>
+<li>Defaulting behavior (what happens when a field isn’t present)</li>
+<li>Normalization (trimming, casing, locale quirks)</li>
+</ul>
+<p>The preview needs to show these behaviors <em>explicitly</em>, not hide them behind “looks fine” formatting. If your UI renders a date nicely but the underlying value is a string that will fail validation on write, the preview is lying.</p>
+<h3>2) Is the execution context representative?</h3>
+<p>This is the part most teams underestimate.</p>
+<p>If the preview path runs in a different environment than the real run—different permissions, different data access patterns, different limits, different versions of the mapping code—you don’t have a preview. You have a demo.</p>
+<p>Even small divergences matter. A preview that runs on “the first 20 rows” feels reasonable until the first 20 rows happen to be clean and the real dataset is messy. Or until row 21 is where the weird delimiter shows up, or where a nested object appears, or where the encoding flips.</p>
+<p>A preview mapping test is only useful if the sample is intentionally chosen to be <em>representative of the edge cases</em>, not just the beginning of the file.</p>
+<h3>3) Can we explain failures in a way that helps the user fix them?</h3>
+<p>This is where “test” earns its name.</p>
+<p>A preview that simply says “Mapping failed” is basically an error generator. What you want is a failure that teaches:</p>
+<ul>
+<li>Which input field caused the issue</li>
+<li>What value was seen</li>
+<li>What transformation was attempted</li>
+<li>What rule was violated (type, format, constraint)</li>
+<li>What the system will do next (skip row, stop run, coerce value, etc.)</li>
+</ul>
+<p>In other words: the preview mapping test should not just validate. It should <em>diagnose</em>.</p>
+<p>And crucially, it should diagnose in the same terms the user thinks in. If the UI says “Column: Start Date” but the error says “payload.start_date_raw,” you’ve created a translation problem at the worst possible time.</p>
+<h2>The subtle trap: “preview correctness” vs “preview usefulness”</h2>
+<p>There’s also a deeper design tension here that I don’t think people talk about enough: sometimes the most <em>useful</em> preview is not the most <em>complete</em> preview.</p>
+<p>For example, if a mapping is expensive—lots of joins, lookups, external calls—you may not want to run the full pipeline just to show a preview. But if you don’t, you risk showing something that’s faster but not faithful.</p>
+<p>So the question becomes: where can you simplify without breaking the contract?</p>
+<p>My bias: simplify the <em>amount</em> of data, not the <em>path</em> of execution.</p>
+<p>Run the same mapping code, the same validators, the same destination constraints—but on fewer rows, picked intelligently. If you need speed, cache intermediate results. If you need determinism, snapshot inputs. But don’t create a “preview mode” that behaves differently and hope nobody notices. They will. And once they do, your preview button becomes decorative.</p>
+<h2>Conclusion</h2>
+<p>A preview mapping test isn’t a convenience feature. It’s a trust mechanism.</p>
+<p>If it’s faithful, it becomes the user’s safety net: a way to move fast without fear. If it’s not faithful, it becomes worse than useless—it becomes the reason people hesitate, double-check everything manually, or abandon the workflow entirely.</p>
+<p>When I think about building or evaluating a “preview mapping test,” I’m not thinking about UI polish or whether the sample table looks nice. I’m thinking about the promise we’re making when we show that preview.</p>
+<p>Because the moment you label something “preview,” you’re saying: <em>this is what will happen.</em></p>
+<p>And you only get to say that if you mean it.</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
