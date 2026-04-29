@@ -22,8 +22,11 @@
   </head>
   <body>
     <h3>Hook</h3>
-<p>The first time I realized an “update” could quietly overwrite something I cared about, it wasn’t dramatic. No crash. No red error banner. Just that subtle, sinking feeling when you open a file and it’s… not <em>your</em> version anymore. The preview looked fine. The change log sounded harmless. And yet the thing I was actually testing—whether the update respected what already existed—failed in the most boring way possible: it simply replaced it.</p>
-<p>That’s what this post is: a short, practical note on “Preview Update Overwrite Tests.” Not theory. Not “best practices.” Just the reality of how I think about these tests when the risk isn’t uptime—it’s losing the exact state you need to preserve.</p>
+<ul>
+<li><strong>Was es ist:</strong> Ein <em>Preview Update Overwrite Test</em> prüft, ob ein Preview-Update über eine bereits angepasste Installation hinweg installiert werden kann, ohne diese Anpassungen zu verlieren.  </li>
+<li><strong>Welches Risiko er abdeckt:</strong> Stilles Überschreiben oder Zurücksetzen von Customizations/State (Configs, Overrides, Caches, Schemas) trotz „erfolgreichem“ Update.  </li>
+<li><strong>Was der Post liefert:</strong> Konkrete, praktische Checks (Snapshot → Update → Diff → Verhaltens-Verify + Rollback), um Overwrites zuverlässig zu erkennen.</li>
+</ul>
 <hr />
 <h3>Personal take</h3>
 <p>I tend to trust preview builds more than I should.</p>
