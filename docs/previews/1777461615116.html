@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Media Upload Test (kurz)</title>
+    <meta property="og:title" content="Media Upload Test (kurz)"/>
+    <meta name="twitter:title" content="Media Upload Test (kurz)"/>
+
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <p>I called it “Media Upload Test” because that’s what it was: not a feature launch, not a product moment, not even a properly named experiment. Just me, a file picker, and the quiet question that always sits behind anything that touches storage:</p>
+<p>“Is this going to be boring… or will it ruin my afternoon?”</p>
+<p>That’s the thing about uploads. On paper, they’re mundane. In reality, they’re where the messy world leaks into your app.</p>
+<h2>Hook</h2>
+<p>Uploads are deceptively simple until you put them in front of real people with real files. Then suddenly you’re not building “upload”; you’re building a tiny treaty between your UI, the network, the server, and whatever chaos someone has on their desktop.</p>
+<p>And I’ve learned that the fastest way to find out what you <em>actually</em> built is to run a media upload test—short, ruthless, and specific.</p>
+<h2>My take (why I don’t trust “it works on my machine”)</h2>
+<p>When I do an upload test, I’m not trying to prove it works. I’m trying to force it to fail in ways that reveal what I forgot to think about.</p>
+<p>Because uploads hide their complexity behind a friendly button:</p>
+<ul>
+<li>The browser might give you a file object, but not the metadata you assumed.</li>
+<li>The network might drop halfway through, and your UI might still be smiling.</li>
+<li>The server might accept the bytes but choke on processing (image resizing, transcoding, virus scanning, whatever comes later).</li>
+<li>“Success” might mean “stored” to you, but “visible” to the user.</li>
+</ul>
+<p>So my default posture is distrust. Not of the code—of the assumptions.</p>
+<p>A “kurz” upload test (short test) is my way of getting signal without turning it into a multi-week project. The goal is to answer: <em>Do we handle the basic reality of media files, or are we only handling the happy-path demo file?</em></p>
+<h2>Insight (what I’m actually testing)</h2>
+<p>A good media upload test isn’t “upload a JPEG and see if it arrives.” That’s a checkbox. What I care about is whether the system behaves coherently under friction.</p>
+<p>Here’s what I focus on:</p>
+<h3>1) The boundary between UI and truth</h3>
+<p>The UI loves to lie accidentally. It’ll show “Uploaded!” because the request returned 200, even if the file is still being processed or will fail later.</p>
+<p>So I test the semantics:</p>
+<ul>
+<li>What does success mean?</li>
+<li>When do we tell the user it’s done?</li>
+<li>If we do async processing, do we represent that state clearly, or do we pretend it’s instantaneous?</li>
+</ul>
+<p>Even a short test reveals whether you’ve built an honest interface or just a fast one.</p>
+<h3>2) File types that don’t behave</h3>
+<p>If you only test with the neat little PNG on your desktop, you’re testing your optimism.</p>
+<p>I like to include a few “annoying but normal” cases:</p>
+<ul>
+<li>A huge image straight off a modern phone (the kind that’s technically JPEG but feels like a small planet).</li>
+<li>A file with a weird name (spaces, non-ASCII characters, long names).</li>
+<li>Something that looks like an image but isn’t (wrong extension, corrupted file).</li>
+</ul>
+<p>Not because I enjoy suffering—because users will do this without realizing they’re doing anything unusual. The upload system needs to respond like an adult.</p>
+<h3>3) Progress, cancellation, and retries (aka: the human part)</h3>
+<p>Uploads are one of the rare places where waiting is unavoidable. That means the user’s perception matters.</p>
+<p>In a short test, I’ll check:</p>
+<ul>
+<li>Do we show progress that maps to reality, or a fake spinner?</li>
+<li>Can I cancel mid-upload? What actually happens?</li>
+<li>If it fails at 90%, do I have to start over? Do we support resume? If not, do we at least fail clearly?</li>
+</ul>
+<p>Even if you don’t implement resumable uploads, you should know how painful failure feels. That pain is a product decision whether you admit it or not.</p>
+<h3>4) Server-side handling: storage is not the same as usable</h3>
+<p>This is where “upload” becomes “pipeline.”</p>
+<p>If the system stores the original file but then generates thumbnails or transcodes video, I want to see:</p>
+<ul>
+<li>Where failures show up</li>
+<li>How they’re reported</li>
+<li>Whether we leave behind broken artifacts (dangling records, orphaned blobs)</li>
+</ul>
+<p>A short test often reveals an uncomfortable truth: we built storage, but not lifecycle.</p>
+<h3>5) Observability: can I debug it without guessing?</h3>
+<p>The fastest way to turn a small issue into a multi-hour dig is lack of visibility.</p>
+<p>So part of my “media upload test” is simply: <em>If this fails, can I tell why in under five minutes?</em></p>
+<ul>
+<li>Do we log the right identifiers?</li>
+<li>Can I correlate a client-side action to a server-side event?</li>
+<li>Do errors carry actionable detail, or just “Upload failed”?</li>
+</ul>
+<p>This isn’t about fancy dashboards. It’s about not being blind.</p>
+<h2>Conclusion (what “kurz” means to me)</h2>
+<p>A short media upload test is my way of respecting reality without over-engineering. It’s not a full QA plan. It’s a targeted attempt to flush out the assumptions that will embarrass you later.</p>
+<p>Uploads touch everything: UX honesty, network resilience, server correctness, and your ability to debug under pressure. That’s why they deserve a test even when the feature seems “simple.”</p>
+<p>When I label something “Media Upload Test (kurz),” I’m basically admitting: I’m not trying to be exhaustive—I’m trying to be awake.</p>
+<p>And if the system survives that kind of quick, skeptical attention, it usually means we didn’t just build an upload button.</p>
+<p>We built something people can trust with their files.</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
