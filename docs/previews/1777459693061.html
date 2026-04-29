@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Testing nach Refactor (kurz)</title>
+    <meta property="og:title" content="Testing nach Refactor (kurz)"/>
+    <meta name="twitter:title" content="Testing nach Refactor (kurz)"/>
+
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <p>Refactor fühlt sich oft an wie: „Ich hab doch <em>nichts</em> am Verhalten geändert – nur schöner gemacht.“ Genau da liegt die Falle. Refactoring ist per Definition verhaltensgleich. In der Realität ist es das selten zu 100 %. Und selbst wenn: Du merkst es nicht ohne Tests.</p>
+<p>Ich hab mir das ein paar Mal selbst bewiesen. Nicht spektakulär im Sinne von „alles brennt“, sondern diese nervige Klasse von Bugs: ein Randfall, der vorher zufällig richtig war, nach dem Aufräumen plötzlich nicht mehr. Oder eine Abhängigkeit, die implizit war (Reihenfolge, Timing, Datenformat), und die man beim Umstrukturieren aus Versehen „korrekt“ gemacht hat – nur dass der Rest des Systems auf das alte, inkorrekte Verhalten gebaut hat. Das sind genau die Dinge, die Code-Reviews kaum zuverlässig finden.</p>
+<h2>Meine Sicht: Refactor ohne Tests ist eine Wette</h2>
+<p>Wenn ich refactore, ändere ich meistens <strong>Struktur</strong>: Funktionen schneiden, Module trennen, Abhängigkeiten entkoppeln, Nebenwirkungen reduzieren. Das sind gute Dinge – aber sie verschieben Grenzen. Und an Grenzen passieren Fehler.</p>
+<p>Was ich dabei gelernt habe: Nach einem Refactor will ich nicht „vertrauen“, dass alles passt. Ich will <strong>Regression</strong> ausschließen: Alles, was vorher ging, geht immer noch. Tests sind dafür nicht „nice to have“, sondern das Messinstrument.</p>
+<h2>Welche Tests nach einem Refactor wirklich helfen</h2>
+<p>Ich denke dabei nicht dogmatisch, sondern pragmatisch: Welche Testart gibt mir die meiste Sicherheit pro investierter Minute?</p>
+<h3>1) Unit-Tests: Schnell, aber nur dort, wo Logik isoliert ist</h3>
+<p>Unit-Tests sind nach Refactors besonders stark, wenn du <strong>reine Logik</strong> extrahiert hast: Parser, Mappings, Validierungen, Berechnungen, Policies („darf User X das?“).</p>
+<ul>
+<li>Vorteil: schnell, pinpointed, super fürs Refactor-Feedback.</li>
+<li>Gefahr: Unit-Tests können „deinen neuen Code“ testen statt das Verhalten. Dann bestätigen sie nur, dass du deine neue Struktur richtig verstanden hast – nicht, dass das System weiterhin korrekt ist.</li>
+</ul>
+<p>Mein Kriterium: Unit-Tests dort, wo ich nach dem Refactor <em>klarere</em> Einheiten habe als vorher. Wenn ich nur umsortiert habe, bringen neue Unit-Tests oft weniger als…</p>
+<h3>2) Integrationstests: Die Refactor-Versicherung</h3>
+<p>Integrationstests sind die, die ich nach Refactors am meisten schätze. Weil Refactors häufig <strong>Schnittstellen</strong> betreffen: DB-Zugriffe, HTTP-Clients, Serialisierung, Auth, Eventing.</p>
+<ul>
+<li>Teste die wichtigen Flows durch 2–3 Schichten (z. B. API → Service → Repository → DB).</li>
+<li>Hier findest du die typischen Refactor-Fehler: falsche Transaktionsgrenzen, missing awaits, fehlerhafte Mapping-Keys, geänderte Default-Werte.</li>
+</ul>
+<p>Wenn ich nach einem Refactor nur <em>eine</em> Kategorie priorisieren dürfte: Integration.</p>
+<h3>3) E2E-Tests: Wenige, aber strategische „Kabelbinder“</h3>
+<p>E2E ist teuer und flaky, aber nach einem Refactor will ich <strong>ein paar</strong> End-to-End-Checks, die sagen: „Das System tut noch das, wofür es existiert.“</p>
+<ul>
+<li>Nicht 50 E2E-Tests.</li>
+<li>Eher 3–10 „kritische Pfade“ (Login, Checkout, Import, was auch immer bei euch Umsatz/Vertrauen bedeutet).</li>
+</ul>
+<p>E2E ist die letzte Sicherheitsleine. Ich behandle sie wie Kabelbinder: nicht elegant, aber hält.</p>
+<h2>Testpyramide (nicht als Dogma, sondern als Kostenmodell)</h2>
+<p>Die Pyramide ist für mich kein Glaubenssatz, sondern eine einfache Kostenrechnung:</p>
+<ul>
+<li><strong>Unit</strong>: billig, schnell, viele</li>
+<li><strong>Integration</strong>: mittel, gezielt</li>
+<li><strong>E2E</strong>: teuer, wenige, kritisch</li>
+</ul>
+<p>Refactor verschiebt oft die Mitte. Viele Teams haben „Unit oder E2E“, aber zu wenig Integration. Nach Refactors rächt sich das.</p>
+<h2>Regression: Was muss garantiert gleich bleiben?</h2>
+<p>Der Kern nach Refactor ist Regression. Ich stelle mir zwei Fragen:</p>
+<ol>
+<li><strong>Welche Inputs/Outputs sind vertraglich?</strong> (API-Responses, DB-Schema, Events, Files)</li>
+<li><strong>Welche Nebenwirkungen sind relevant?</strong> (Mails, Jobs, Writes, Logs/Tracing manchmal)</li>
+</ol>
+<p>Wenn ich das nicht explizit mache, teste ich am Ende irgendwas – und wundere mich, warum trotzdem Bugs durchrutschen.</p>
+<h2>Golden Master / Snapshot: Wenn der Code alt ist und keiner ihn versteht</h2>
+<p>Manchmal refactorest du Legacy, und es gibt keine Tests. Dann ist „richtiges“ Testen schwer, weil du nicht mal sicher bist, was „richtig“ ist. Dafür nutze ich gern Golden Master / Snapshots:</p>
+<ul>
+<li>Du nimmst eine Reihe repräsentativer Inputs</li>
+<li>zeichnest die Outputs der aktuellen Version auf (Gold)</li>
+<li>refactorst</li>
+<li>vergleichst: Output gleich? Gut.</li>
+</ul>
+<p>Wichtig: Snapshots sind nur so gut wie die Inputs. Ich nehme dafür gern:
+- echte Produktionssamples (anonymisiert)
+- Edge Cases (leer, groß, Sonderzeichen, Nulls)
+- „komische“ historische Daten, die man sonst nie nachstellt</p>
+<p>Und ja: Snapshots können nerven, wenn sie ständig angepasst werden. Aber als Refactor-Brücke sind sie Gold wert – vor allem, wenn du danach Stück für Stück in aussagekräftige Tests umbaust.</p>
+<h2>CI: Refactor-Sicherheit ist nur echt, wenn sie automatisch läuft</h2>
+<p>Lokale Tests sind gut. CI ist das, was verhindert, dass dein Refactor zwei Tage später durch einen Merge „kaputtoptimiert“ wird.</p>
+<p>Mein Minimum nach größeren Refactors:
+- Tests laufen bei jedem PR
+- schnelle Suite (Unit + kleine Integrationsmenge) als Pflicht
+- E2E ggf. nightly oder für Release-Branches, aber die kritischen E2E gern auch pro PR, wenn stabil</p>
+<p>Und ganz praktisch: Wenn Tests nach Refactor plötzlich 2× so lange dauern, ist das ein Signal. Dann hast du entweder zu viel E2E reingeschoben oder Integrationstests, die eigentlich Unit sein könnten.</p>
+<h2>Mini-Checkliste (praxisnah)</h2>
+<ul>
+<li>[ ] Vorher/Nachher: Was darf sich <em>nicht</em> ändern? (API, Events, Files, DB)</li>
+<li>[ ] Unit-Tests für extrahierte Logik (pure functions, Mapper, Validatoren)</li>
+<li>[ ] Integrationstests für die refactorten Grenzen (DB/HTTP/Auth/Queue)</li>
+<li>[ ] 3–10 E2E für kritische Pfade (nicht mehr)</li>
+<li>[ ] Golden Master/Snapshot, wenn „Soll-Verhalten“ unklar ist</li>
+<li>[ ] CI: Tests als PR-Gate, nicht „optional“</li>
+<li>[ ] Ein bewusst gewählter Satz an Edge Cases (nicht nur Happy Path)</li>
+</ul>
+<h2>Fazit</h2>
+<p>Refactoring ist wertvoll, aber es verschiebt Risiken. Tests sind nicht das Pflichtprogramm „weil man das so macht“, sondern die einzige saubere Art, nach dem Umbau zu sagen: „Das Ding tut noch genau das, was es soll.“ Wenn ich nach einem Refactor teste, kaufe ich mir nicht nur Sicherheit – ich kaufe mir die Freiheit, beim nächsten Mal schneller und mutiger aufzuräumen.</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
