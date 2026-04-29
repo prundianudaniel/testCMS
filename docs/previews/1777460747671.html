@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hook</title>
+    <meta property="og:title" content="Hook"/>
+    <meta name="twitter:title" content="Hook"/>
+
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <h3>Hook</h3>
+<p>The first time I realized an “update” could quietly overwrite something I cared about, it wasn’t dramatic. No crash. No red error banner. Just that subtle, sinking feeling when you open a file and it’s… not <em>your</em> version anymore. The preview looked fine. The change log sounded harmless. And yet the thing I was actually testing—whether the update respected what already existed—failed in the most boring way possible: it simply replaced it.</p>
+<p>That’s what this post is: a short, practical note on “Preview Update Overwrite Tests.” Not theory. Not “best practices.” Just the reality of how I think about these tests when the risk isn’t uptime—it’s losing the exact state you need to preserve.</p>
+<hr />
+<h3>Personal take</h3>
+<p>I tend to trust preview builds more than I should.</p>
+<p>Not because they’re stable (they’re often not), but because the word <em>preview</em> signals “safe to try.” Like it’s quarantined. Like it can’t hurt anything real. But the overwrite problem doesn’t care about labels—preview channels still touch real directories, real configs, real caches, real schemas. And if the update path assumes it owns the world, it will happily repaint over whatever customizations were there.</p>
+<p>The frustrating part is that overwrite bugs don’t announce themselves. They look like successful installs. They even look like “clean upgrades.” You only notice later, when something behaves “weird,” and you realize the “weird” is actually your missing setting, your replaced file, your reset state.</p>
+<p>So for me, an overwrite test is less about correctness in the abstract and more about respect: does this updater respect the boundary between “software-managed” and “user-owned”?</p>
+<hr />
+<h3>Insight: what I actually test (and why)</h3>
+<p>When I say “Preview Update Overwrite Test,” I’m usually trying to answer a very specific question:</p>
+<p><strong>If I install a preview update on top of a modified environment, do I keep my modifications?</strong></p>
+<p>That sounds obvious, but it breaks into a few concrete checks that catch 90% of the pain.</p>
+<h4>1) Identify “owned” vs “touched” surfaces</h4>
+<p>Before updating anything, I force myself to list the surfaces that can be overwritten:</p>
+<ul>
+<li>Config files (especially ones that ship with defaults)</li>
+<li>Local state (caches, DB files, indexes)</li>
+<li>User overrides (anything in a <code>custom/</code>, <code>overrides/</code>, <code>.d/</code> folder pattern)</li>
+<li>Templates or generated files that people <em>edit anyway</em></li>
+<li>Environment variables or <code>.env</code>-style files</li>
+<li>Migration scripts that might re-run</li>
+</ul>
+<p>The key is: if the updater <em>touches</em> it, it can overwrite it. Even if the app “shouldn’t.”</p>
+<h4>2) Make the test adversarial (not polite)</h4>
+<p>A lot of update tests are too friendly: “install vNext over vCurrent with standard settings.” That catches broken installers, sure—but overwrite bugs hide in the messy reality.</p>
+<p>So I make the environment slightly hostile:</p>
+<ul>
+<li>Change a default config value to something unmistakable.</li>
+<li>Add a comment or sentinel line like <code># DANIEL_TEST_DO_NOT_OVERWRITE</code>.</li>
+<li>Create an extra file that shouldn’t be removed.</li>
+<li>Modify permissions in a way that should force the updater to fail loudly rather than silently reset things.</li>
+</ul>
+<p>The goal isn’t to be mean; it’s to simulate what real users do: they customize, they patch, they tweak.</p>
+<h4>3) Define “overwrite” precisely</h4>
+<p>“Overwrite” isn’t just “file changed.”</p>
+<p>I treat these as separate outcomes:</p>
+<ul>
+<li><strong>Hard overwrite:</strong> file replaced, my edits gone.</li>
+<li><strong>Merge overwrite:</strong> file updated but my custom values reset.</li>
+<li><strong>Silent reset:</strong> app boots, but state/config is regenerated and my prior state is ignored.</li>
+<li><strong>Clobber-by-migration:</strong> schema updated in a way that discards or reinterprets data.</li>
+</ul>
+<p>A preview update that “merges” but resets a key value is still an overwrite in practice.</p>
+<h4>4) Snapshot, update, diff—then verify behavior</h4>
+<p>The simplest reliable pattern is:</p>
+<ol>
+<li>Snapshot the relevant directory tree (or export config/state).</li>
+<li>Run the preview update.</li>
+<li>Diff the snapshot vs new state.</li>
+<li>Run a functional check that proves the app is reading the preserved values.</li>
+</ol>
+<p>Because diffs alone can lie: some systems keep your file but stop reading it. You need a behavioral assertion like “the service starts with the custom port” or “the feature flag stays enabled.”</p>
+<h4>5) Treat rollback as part of the overwrite test</h4>
+<p>Preview updates go wrong. If rollback exists, I want to know:</p>
+<ul>
+<li>Does rollback restore my previous files or restore <em>its</em> previous files?</li>
+<li>Do I get my customizations back?</li>
+<li>Is the system left in a hybrid state where neither version is consistent?</li>
+</ul>
+<p>If rollback can’t preserve user-owned modifications, that’s not rollback—it’s reinstall with extra steps.</p>
+<hr />
+<h3>Conclusion</h3>
+<p>Preview updates are where overwrite bugs like to hide, because everyone’s attention is on “does it install?” and “does it run?” The thing I care about is quieter: <strong>does it preserve what was already there?</strong></p>
+<p>A good Preview Update Overwrite Test is basically an honesty test. It forces the updater to reveal whether it understands the difference between defaults and decisions—between shipped files and lived-in systems.</p>
+<p>If you’re running preview builds in any environment that contains real customization, don’t just test the update path. Test the <em>respect</em> of the update path. That’s the part that bites later—when the preview is over, and you’re left wondering where your configuration went.</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
