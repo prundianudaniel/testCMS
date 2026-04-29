@@ -22,8 +22,7 @@
   </head>
   <body>
     <h3>Hook</h3>
-<p>Overwrite Logging Tests are one of those things that sound boring until they’re the only reason you can explain <em>why</em> a database recovered cleanly (or didn’t). It’s not a flashy topic. There’s no “look at this cool dashboard” moment. It’s basically: <em>let’s intentionally stress the ugliest part of persistence</em> and see whether the system still behaves like it promised.</p>
-<p>And the moment you run one properly, you stop trusting hand-wavy “we’re durable” statements forever.</p>
+<p>Overwrite Logging Tests wirken erst mal langweilig – bis sie der einzige Grund sind, warum du erklären kannst, <em>warum</em> eine Datenbank sauber recovered hat (oder eben nicht). Gerade bei begrenztem Log-Speicher, wenn Segmente wiederverwendet und überschrieben werden, entscheidet sich Crash-Recovery-Korrektheit in fiesen Randfällen. Ein guter Test zwingt das System genau dort hin und zeigt, ob „durable“ wirklich stimmt.</p>
 <hr />
 <h3>Personal take</h3>
 <p>I like tests that are unfair in a very specific way.</p>
