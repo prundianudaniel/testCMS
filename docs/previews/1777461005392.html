@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hook</title>
+    <meta property="og:title" content="Hook"/>
+    <meta name="twitter:title" content="Hook"/>
+
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <h3>Hook</h3>
+<p>Overwrite Logging Tests are one of those things that sound boring until they’re the only reason you can explain <em>why</em> a database recovered cleanly (or didn’t). It’s not a flashy topic. There’s no “look at this cool dashboard” moment. It’s basically: <em>let’s intentionally stress the ugliest part of persistence</em> and see whether the system still behaves like it promised.</p>
+<p>And the moment you run one properly, you stop trusting hand-wavy “we’re durable” statements forever.</p>
+<hr />
+<h3>Personal take</h3>
+<p>I like tests that are unfair in a very specific way.</p>
+<p>Not “random chaos monkey” unfair. More like: <em>I’m going to force your logging layer into the exact corner case you hoped never happens in production.</em> Overwrite logging is that kind of corner. It’s where you can’t just append forever; you reuse space. You overwrite old log segments. You wrap around. You manage a ring. You reclaim. You compact. Whatever your implementation is—eventually the log stops being this infinite tape and becomes a bounded structure with policies.</p>
+<p>The reason I care about an Overwrite Logging Test is simple: it’s where correctness stops being a theoretical property and becomes something you can break with one off-by-one.</p>
+<p>In my head, this test isn’t “does logging work.” It’s: <strong>can I keep writing and crashing and recovering while the system reuses log space, without ever replaying garbage or losing committed state?</strong> That’s the whole point.</p>
+<hr />
+<h3>Insight</h3>
+<p>When people talk about logging, they often implicitly assume an append-only world: write-ahead log grows, checkpoints happen, and older segments get deleted once they’re no longer needed. Overwrite logging flips the mental model: you might not delete segments; you might reuse them. That changes the failure modes.</p>
+<p>Here’s what an Overwrite Logging Test is really trying to catch:</p>
+<ol>
+<li><strong>Wrap-around correctness</strong></li>
+<li>If the log is logically circular, then every “end” becomes a new “beginning.”</li>
+<li>
+<p>The test has to force wrap-around multiple times, not just once. The first wrap often works; the third is where you find the bug because metadata has been overwritten more than once.</p>
+</li>
+<li>
+<p><strong>Ordering guarantees under reuse</strong></p>
+</li>
+<li>Logging isn’t just bytes on disk. It’s ordering: “this record is newer than that record.”</li>
+<li>When you overwrite, you need a way to distinguish “old data that happens to still be there” from “valid current data.”</li>
+<li>
+<p>If your system uses LSNs (log sequence numbers), epochs, segment IDs, generation counters—whatever—this test validates that you never mistake stale bytes for valid records after a crash.</p>
+</li>
+<li>
+<p><strong>Crash recovery boundaries</strong></p>
+</li>
+<li>The nastiest scenario is: you overwrite part of the log, crash mid-write, and on restart the recovery scan sees something that <em>looks</em> parseable.</li>
+<li>A good overwrite logging design makes partial writes clearly invalid (checksums, length prefixes, commit markers, etc.).</li>
+<li>
+<p>The test should crash at deliberately bad times: after header write, mid-payload, after footer, during metadata update.</p>
+</li>
+<li>
+<p><strong>Checkpoint / truncation interaction</strong></p>
+</li>
+<li>Overwrite logging usually only works if you know what’s safe to discard (or overwrite).</li>
+<li>That typically depends on checkpoints: “everything before X is no longer needed for recovery.”</li>
+<li>
+<p>The test needs to create pressure: lots of updates, delayed checkpoints, then force overwrite pressure and see if the system ever overwrites something it still needs.</p>
+</li>
+<li>
+<p><strong>Monotonicity of “what recovery believes”</strong></p>
+</li>
+<li>One subtle property I look for is: after recovery, the system’s view of the last committed state shouldn’t go backwards.</li>
+<li>Overwrite tests can accidentally reintroduce earlier state if generation tracking is wrong and recovery replays the wrong segment.</li>
+</ol>
+<p>A “kurz” way to describe the test, if I had to compress it, is:</p>
+<blockquote>
+<p>Fill the log until it must overwrite, keep writing across wrap-around, inject crashes at every awkward boundary, and verify recovery always reconstructs exactly the committed state—never less, never more.</p>
+</blockquote>
+<p>And I’m deliberately saying <em>exactly</em>. Overwrite logging bugs tend to be binary: either you lose data, or you resurrect data that was supposed to be dead. Both are catastrophic, just in different ways.</p>
+<hr />
+<h3>Conclusion</h3>
+<p>I don’t think Overwrite Logging Tests are optional if you’re building anything that claims durability with bounded log space. They’re not “nice to have.” They’re the test that proves you didn’t just implement logging—you implemented <em>time</em> correctly: what’s new, what’s old, what must survive a crash, and what must be ignored even if it still exists on disk.</p>
+<p>If there’s one reason I like this test category, it’s that it forces honesty. Append-only logging can hide mistakes for a long time because old segments are cleanly separated. Overwrite logging removes that comfort. The bytes blur together, and only your metadata, invariants, and recovery logic keep reality straight.</p>
+<p>That’s the whole point of running the test: not to feel confident, but to earn confidence—by making the system survive the exact kind of messy situation production will eventually create on its own.</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
