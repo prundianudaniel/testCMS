@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>- **Preview ≠ Update.** Das sind zwei verschiedene Dinge, auch wenn sie auf demselben Button stehen.</title>
+    <meta property="og:title" content="- **Preview ≠ Update.** Das sind zwei verschiedene Dinge, auch wenn sie auf demselben Button stehen."/>
+    <meta name="twitter:title" content="- **Preview ≠ Update.** Das sind zwei verschiedene Dinge, auch wenn sie auf demselben Button stehen."/>
+
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        max-width: 860px; margin: 40px auto; padding: 0 18px; line-height: 1.55;
+      }
+      pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      pre { padding: 12px 14px; overflow:auto; border-radius: 10px; background: rgba(127,127,127,0.12); }
+      code { background: rgba(127,127,127,0.12); padding: 1px 6px; border-radius: 8px; }
+      a { color: #2563eb; }
+      hr { border: 0; border-top: 1px solid rgba(127,127,127,0.35); margin: 24px 0; }
+      blockquote { border-left: 3px solid rgba(127,127,127,0.5); padding-left: 12px; opacity: 0.95; }
+    </style>
+  </head>
+  <body>
+    <ul>
+<li><strong>Preview ≠ Update.</strong> Das sind zwei verschiedene Dinge, auch wenn sie auf demselben Button stehen.  </li>
+<li>Preview zeigt oft nur eine <em>Hypothese</em> deiner Änderung—gefiltert durch Cache, Build-Schritte, Feature Flags und Environment-Eigenheiten.  </li>
+<li>Deshalb ist „sah im Preview gut aus“ kein Beweis dafür, dass es nach dem Update/Publish auch wirklich so ist.</li>
+</ul>
+<h3>Hook</h3>
+<p>There’s a particular kind of false confidence that comes from a preview screen.</p>
+<p>Everything looks clean. The UI loads. The copy wraps correctly. The buttons click. You breathe out. Then you publish, refresh the real page, and one of two things happens:</p>
+<p>1) something subtle is off (spacing, fonts, data), or<br />
+2) something isn’t there at all.</p>
+<p>Preview didn’t lie, exactly. It just told the truth about the wrong reality.</p>
+<h3>Personal take</h3>
+<p>I like previews. I rely on them. I also don’t trust them.</p>
+<p>That sounds contradictory, but it’s the only way I’ve found to stay sane when working on anything that has a “draft → preview → publish” workflow—whether it’s a CMS, a static site generator, a design system sandbox, or a bespoke admin panel with a “preview mode” bolted on at the end.</p>
+<p>The trap is emotional: preview feels like a safety net. It gives you the sense that you’re looking at the future. But technically, preview is usually a <em>parallel present</em>.</p>
+<p>It’s a different request path. Different headers. Different auth context. Sometimes different data. Often different caching rules. And almost always, different assumptions.</p>
+<p>So when I hear “Preview Update Test (kurz),” my brain immediately goes to: <em>What exactly are we testing here—preview, update, or the seam between them?</em></p>
+<p>Because that seam is where things break.</p>
+<h3>Insight</h3>
+<p>If I had to summarize what makes preview-update flows fragile, it’s this: <strong>previews are optimized for speed and convenience; updates are optimized for correctness and persistence.</strong> Those goals don’t naturally align.</p>
+<p>A few concrete failure modes I’ve learned to look for (and yes, I consider these part of the “preview update test,” even if the UI makes it look like one thing):</p>
+<h4>1) Preview renders a different version of the code than production</h4>
+<p>Preview environments often run on a newer build, a different branch, or a dev-friendly configuration. That’s great—until you’re validating a change that depends on production-only behavior (minification edge cases, stricter CSP headers, server-side rendering differences, etc.).</p>
+<p>A “preview update test” that doesn’t explicitly confirm <em>which build</em> is being previewed is basically a UI screenshot test.</p>
+<h4>2) Preview reads draft data; publish writes canonical data</h4>
+<p>Draft content might be stored separately (or tagged differently), and preview reads from that draft store. When you hit update/publish, the system writes to the canonical store, triggers invalidation, search indexing, CDN refresh, webhook fan-out—whatever your stack does.</p>
+<p>If preview bypasses those downstream effects (and it often does), you’re not testing the update; you’re testing a read-only representation of a draft.</p>
+<p>So the real test question becomes: <strong>Does update actually propagate through the same pipeline users experience?</strong></p>
+<h4>3) Caching makes you think your update didn’t apply (or did)</h4>
+<p>This one is brutal because it creates both false negatives and false positives.</p>
+<ul>
+<li>False negative: you publish, refresh, and still see old content because the CDN or browser cache hasn’t invalidated yet.</li>
+<li>False positive: preview shows the new content because it always bypasses cache, but production is still serving the old version.</li>
+</ul>
+<p>A good “preview update test” isn’t just “do I see the change,” it’s “<em>where</em> do I see the change, and under what caching conditions?”</p>
+<h4>4) Preview mode quietly changes permissions and context</h4>
+<p>Preview links often include tokens or special session states. That can alter what data is accessible, which components render, or what API calls succeed.</p>
+<p>So you can end up validating a page that only works because preview mode is acting like an all-access pass.</p>
+<p>Then a real user hits it and gets a 403, missing data, or a component that fails silently.</p>
+<h4>5) The UI flow hides the real state transitions</h4>
+<p>The button says “Update.” Under the hood, it might be:</p>
+<ul>
+<li>save draft  </li>
+<li>validate schema  </li>
+<li>enqueue publish job  </li>
+<li>publish job runs async  </li>
+<li>invalidate cache  </li>
+<li>update search index  </li>
+<li>fire webhook  </li>
+<li>mark as published  </li>
+</ul>
+<p>Preview might be showing you the state after “save draft,” not after “publish job completed.” If the UI doesn’t make those transitions visible, people naturally assume “Update” is instantaneous and atomic. It rarely is.</p>
+<h3>Conclusion</h3>
+<p>When I see “Preview Update Test (kurz),” I interpret it as a reminder to keep the test short—but not shallow.</p>
+<p>A short test that actually means something usually checks three realities:</p>
+<p>1) <strong>Preview reality:</strong> does the preview reflect the draft change I just made?<br />
+2) <strong>Publish reality:</strong> after update, does the canonical page reflect the change without relying on preview tokens?<br />
+3) <strong>Propagation reality:</strong> do the side effects (cache, search, embeds, downstream consumers) behave the way the system promises?</p>
+<p>If preview is the comforting mirror, update is the irreversible commit. The test lives in the gap between them.</p>
+<p>And that gap is where I’ve learned to slow down, even when the test is supposed to be “kurz.”</p>
+    <hr />
+    <div style="opacity:0.7;font-size:12px">Generated by Knowledge Agent</div>
+  </body>
+</html>
